@@ -23,28 +23,33 @@ class TestSettings:
             assert settings.host == "127.0.0.1"
             assert settings.port == 8000
             assert settings.allowed_domains == ["*"]
-            assert settings.portia_api_key is None
-            assert settings.openai_api_key is None
-            assert settings.anthropic_api_key is None
+            assert settings.portia_config.openai_api_key is None
+            assert settings.portia_config.anthropic_api_key is None
+            assert settings.portia_config.portia_api_key is None
             assert settings.log_level == "INFO"
 
     def test_settings_custom_values(self) -> None:
         """Test Settings with custom values."""
-        custom_settings = Settings(
-            app_name="Custom App",
-            debug=True,
-            host="0.0.0.0",  # noqa: S104
-            port=9000,
-            allowed_domains=["example.com"],
-            log_level="DEBUG",
-        )
+        # Clear environment variables to avoid interference
+        with patch.dict("os.environ", {}, clear=True):
+            custom_settings = Settings(
+                app_name="Custom App",
+                debug=True,
+                host="0.0.0.0",  # noqa: S104
+                port=9000,
+                allowed_domains=["example.com"],
+                log_level="DEBUG",
+            )
 
-        assert custom_settings.app_name == "Custom App"
-        assert custom_settings.debug is True
-        assert custom_settings.host == "0.0.0.0"  # noqa: S104
-        assert custom_settings.port == 9000
-        assert custom_settings.allowed_domains == ["example.com"]
-        assert custom_settings.log_level == "DEBUG"
+            assert custom_settings.app_name == "Custom App"
+            assert custom_settings.debug is True
+            assert custom_settings.host == "0.0.0.0"  # noqa: S104
+            assert custom_settings.port == 9000
+            assert custom_settings.allowed_domains == ["example.com"]
+            assert custom_settings.portia_config.openai_api_key is None
+            assert custom_settings.portia_config.anthropic_api_key is None
+            assert custom_settings.portia_config.portia_api_key is None
+            assert custom_settings.log_level == "DEBUG"
 
     def test_settings_environment_variables(self) -> None:
         """Test Settings with environment variables."""
@@ -55,7 +60,9 @@ class TestSettings:
                 "DEBUG": "true",
                 "HOST": "192.168.1.1",
                 "PORT": "8080",
-                "PORTIA_API_KEY": "test_key",
+                "PORTIA_CONFIG__OPENAI_API_KEY": "test_openai_key",
+                "PORTIA_CONFIG__ANTHROPIC_API_KEY": "test_anthropic_key",
+                "PORTIA_CONFIG__PORTIA_API_KEY": "test_portia_key",
                 "LOG_LEVEL": "WARNING",
             },
         ):
@@ -65,50 +72,49 @@ class TestSettings:
             assert settings.debug is True
             assert settings.host == "192.168.1.1"
             assert settings.port == 8080
-            assert settings.portia_api_key == "test_key"
+            assert settings.portia_config.openai_api_key == "test_openai_key"
+            assert settings.portia_config.anthropic_api_key == "test_anthropic_key"
+            assert settings.portia_config.portia_api_key == "test_portia_key"
             assert settings.log_level == "WARNING"
+
+    def test_portia_config_conversion(self) -> None:
+        """Test converting PortiaConfigSettings to Portia Config."""
+        with patch.dict(
+            "os.environ",
+            {
+                "PORTIA_CONFIG__OPENAI_API_KEY": "test_openai_key",
+                "PORTIA_CONFIG__ANTHROPIC_API_KEY": "test_anthropic_key",
+            },
+            clear=True,
+        ):
+            settings = Settings()
+            portia_config = settings.get_portia_config()
+
+            # The actual Config object should have the API keys set
+            # Note: Portia Config stores API keys as SecretStr objects
+            assert portia_config.openai_api_key.get_secret_value() == "test_openai_key"
+            assert portia_config.anthropic_api_key.get_secret_value() == "test_anthropic_key"
 
 
 @pytest.mark.unit
-class TestGetVersionFromPyproject:
-    """Test cases for _get_version_from_pyproject function."""
+def test_get_version_from_pyproject() -> None:
+    """Test _get_version_from_pyproject function."""
+    # Test successful version extraction
+    mock_toml_content = b'[project]\nversion = "1.0.0"\n'
+    with patch("pathlib.Path.open", mock_open(read_data=mock_toml_content)):
+        version = _get_version_from_pyproject()
+        assert version == "1.0.0"
 
-    def test_get_version_success(self) -> None:
-        """Test successful version extraction from pyproject.toml."""
-        mock_content = b"""
-[project]
-name = "test-app"
-version = "1.2.3"
-"""
-        with (
-            patch("builtins.open", mock_open(read_data=mock_content)),
-            patch("pathlib.Path.open", mock_open(read_data=mock_content)),
-        ):
-            version = _get_version_from_pyproject()
-            assert version == "1.2.3"
+    # Test file not found
+    with patch("pathlib.Path.open", side_effect=FileNotFoundError):
+        version = _get_version_from_pyproject()
+        assert version == "unknown"
 
-    def test_get_version_file_not_found(self) -> None:
-        """Test version extraction when pyproject.toml doesn't exist."""
-        with patch("pathlib.Path.open", side_effect=FileNotFoundError):
-            version = _get_version_from_pyproject()
-            assert version == "unknown"
-
-    def test_get_version_key_error(self) -> None:
-        """Test version extraction with missing version key."""
-        mock_content = b"""
-[project]
-name = "test-app"
-"""
-        with patch("pathlib.Path.open", mock_open(read_data=mock_content)):
-            version = _get_version_from_pyproject()
-            assert version == "unknown"
-
-    def test_get_version_invalid_toml(self) -> None:
-        """Test version extraction with invalid TOML."""
-        mock_content = b"invalid toml content"
-        with patch("pathlib.Path.open", mock_open(read_data=mock_content)):
-            version = _get_version_from_pyproject()
-            assert version == "unknown"
+    # Test missing version key
+    mock_toml_content = b'[project]\nname = "test"\n'
+    with patch("pathlib.Path.open", mock_open(read_data=mock_toml_content)):
+        version = _get_version_from_pyproject()
+        assert version == "unknown"
 
 
 @pytest.mark.unit

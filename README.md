@@ -62,8 +62,9 @@ portia-python-fastapi-example/
    Create a `.env` file in the root directory with at least one api key:
    ```env
    # LLM Settings (at least one is required)
-   OPENAI_API_KEY="your-openai-api-key"
-   ANTHROPIC_API_KEY="your-anthropic-api-key"
+   PORTIA_CONFIG__OPENAI_API_KEY="your-openai-api-key"
+   PORTIA_CONFIG__ANTHROPIC_API_KEY="your-anthropic-api-key"
+   PORTIA_CONFIG__PORTIA_API_KEY="your-portia-api-key"
    ```
 
 ## Usage
@@ -85,7 +86,7 @@ uv run fastapi dev main.py
 2. Run the docker image
     ```bash
     docker run -p 8000:8000 \
-      -e OPENAI_API_KEY="your-openai-key" \
+      -e PORTIA_CONFIG__OPENAI_API_KEY="your-openai-key" \
       -e DEBUG="false" \
       portia-fastapi-example
     ```
@@ -169,18 +170,18 @@ The application uses Pydantic Settings for configuration management. Settings ca
 
 ### Available Settings
 
-| Setting               | Default                  | Description               |
-| --------------------- | ------------------------ | ------------------------- |
-| `APP_NAME`            | "Portia FastAPI Example" | Application name          |
-| `APPLICATION_VERSION` | "0.1.0"                  | Application version       |
-| `DEBUG`               | `false`                  | Debug mode                |
-| `HOST`                | "127.0.0.1"              | Server host               |
-| `PORT`                | 8000                     | Server port               |
-| `ALLOWED_DOMAINS`     | `["*"]`                  | CORS allowed domains      |
-| `PORTIA_API_KEY`      | `None`                   | Portia API key (optional) |
-| `OPENAI_API_KEY`      | `None`                   | OpenAI API key            |
-| `ANTHROPIC_API_KEY`   | `None`                   | Anthropic API key         |
-| `LOG_LEVEL`           | "INFO"                   | Logging level             |
+| Setting                            | Default                  | Description               |
+| ---------------------------------- | ------------------------ | ------------------------- |
+| `APP_NAME`                         | "Portia FastAPI Example" | Application name          |
+| `APPLICATION_VERSION`              | "0.1.0"                  | Application version       |
+| `DEBUG`                            | `false`                  | Debug mode                |
+| `HOST`                             | "127.0.0.1"              | Server host               |
+| `PORT`                             | 8000                     | Server port               |
+| `ALLOWED_DOMAINS`                  | `["*"]`                  | CORS allowed domains      |
+| `PORTIA_CONFIG__PORTIA_API_KEY`    | `None`                   | Portia API key (optional) |
+| `PORTIA_CONFIG__OPENAI_API_KEY`    | `None`                   | OpenAI API key            |
+| `PORTIA_CONFIG__ANTHROPIC_API_KEY` | `None`                   | Anthropic API key         |
+| `LOG_LEVEL`                        | "INFO"                   | Logging level             |
 
 ## Development
 

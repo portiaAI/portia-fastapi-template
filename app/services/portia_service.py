@@ -4,8 +4,9 @@ import logging
 import time
 from typing import ClassVar
 
-from portia import Config, DefaultToolRegistry, Portia, PortiaToolRegistry
+from portia import DefaultToolRegistry, Portia, PortiaToolRegistry
 
+from app.config import settings
 from app.exceptions import InvalidToolsError
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class PortiaService:
     def __init__(self) -> None:
         """Initialize the Portia service."""
         if not hasattr(self, "_initialized"):
-            self._config = Config.from_default()
+            self._config = settings.get_portia_config()
             self._initialise_available_tools()
             self._initialized = True
             self._tools: set[str] = set()
