@@ -1,0 +1,39 @@
+services:
+  portia-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env  # Optional: Load from .env file
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - portia-network
+
+  # Optional: Redis for LLM caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - portia-network
+    command: redis-server --appendonly yes
+    profiles:
+      - cache  # Use this service only when cache profile is activated
+
+networks:
+  portia-network:
+    driver: bridge
+
+volumes:
+  redis_data:

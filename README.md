@@ -10,8 +10,10 @@ A well-structured FastAPI application integrated with the Portia SDK for buildin
 - 📊 **Structured logging** with configurable levels
 - 🔍 **Health checks** and monitoring endpoints
 - 📚 **Auto-generated OpenAPI documentation**
-- 🐳 **Production-ready** with proper error handling
+- 🐳 **Production-ready** with proper error handling and Docker support
 - ⚡ **UV** for fast dependency management and project tooling
+- 🧵 **Threaded execution** for non-blocking Portia SDK operations
+- 🐳 **Docker Compose** with Redis caching support
 
 ## Project Structure
 
@@ -76,20 +78,120 @@ This will start the FastAPI server locally in dev mode.
 uv run fastapi dev main.py
 ```
 
-### Using the Dockerfile
+### Using Docker
 
-1. Build the docker image
+#### Option 1: Docker Compose (Recommended)
+
+1. **Create environment configuration:**
+   Create a `.env` file in the project root with your API keys:
+   ```env
+   # =============================================================================
+   # LLM API Keys (At least one is required)
+   # =============================================================================
+
+   # OpenAI API Key
+   OPENAI_API_KEY=your-openai-api-key-here
+
+   # Anthropic API Key
+   ANTHROPIC_API_KEY=your-anthropic-api-key-here
+
+   # MistralAI API Key
+   MISTRALAI_API_KEY=your-mistralai-api-key-here
+
+   # Google Generative AI API Key
+   GOOGLE_API_KEY=your-google-api-key-here
+
+   # Azure OpenAI Configuration
+   AZURE_OPENAI_API_KEY=your-azure-openai-api-key-here
+   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+
+   # Portia API Key (optional)
+   PORTIA_API_KEY=your-portia-api-key-here
+
+   # =============================================================================
+   # Application Configuration (Optional)
+   # =============================================================================
+
+   # Server Configuration
+   HOST=127.0.0.1
+   PORT=8000
+   MAX_WORKERS=4
+
+   # Portia Configuration
+   PORTIA_CONFIG__LLM_PROVIDER=openai
+   PORTIA_CONFIG__DEFAULT_MODEL=openai/gpt-4o
+   PORTIA_CONFIG__STORAGE_CLASS=MEMORY
+   ```
+
+2. **Run with Docker Compose:**
+   ```bash
+   # Run the main application
+   docker compose up -d
+
+   # Run with Redis cache (optional)
+   docker compose --profile cache up -d
+
+   # View logs
+   docker compose logs -f portia-api
+
+   # Stop services
+   docker compose down
+   ```
+
+3. **Access the application:**
+   - API: http://localhost:8000
+   - Docs: http://localhost:8000/docs
+   - Redis (if enabled): localhost:6379
+
+#### Option 2: Docker Build and Run
+
+1. **Build the docker image:**
     ```bash
     docker build -t portia-fastapi-example .
     ```
 
-2. Run the docker image
+2. **Run the docker image:**
     ```bash
     docker run -p 8000:8000 \
       -e PORTIA_CONFIG__OPENAI_API_KEY="your-openai-key" \
       -e DEBUG="false" \
       portia-fastapi-example
     ```
+
+#### Docker Environment Variables
+
+The Docker setup supports all configuration options via environment variables:
+
+| Environment Variable | Default | Description                                      |
+| -------------------- | ------- | ------------------------------------------------ |
+| `HOST`               | 0.0.0.0 | Server host                                      |
+| `PORT`               | 8000    | Server port                                      |
+| `DEBUG`              | false   | Debug mode                                       |
+| `LOG_LEVEL`          | INFO    | Logging level                                    |
+| `MAX_WORKERS`        | 4       | Thread pool size for Portia execution            |
+| `ALLOWED_DOMAINS`    | *       | CORS allowed domains                             |
+| `PORTIA_CONFIG__*`   |         | Portia configuration (see Portia Config section) |
+
+#### Production Deployment
+
+For production, consider:
+
+1. **Enable Redis caching:**
+   ```bash
+   docker compose --profile cache up -d
+   ```
+   Then set: `PORTIA_CONFIG__LLM_REDIS_CACHE_URL=redis://redis:6379`
+
+2. **Adjust worker threads based on your load:**
+   ```env
+   MAX_WORKERS=8  # Increase for higher concurrency
+   ```
+
+3. **Use proper logging:**
+   ```env
+   LOG_LEVEL=INFO
+   PORTIA_CONFIG__JSON_LOG_SERIALIZE=true
+   ```
 
 ### API Documentation
 
@@ -170,18 +272,50 @@ The application uses Pydantic Settings for configuration management. Settings ca
 
 ### Available Settings
 
-| Setting                            | Default                  | Description               |
-| ---------------------------------- | ------------------------ | ------------------------- |
-| `APP_NAME`                         | "Portia FastAPI Example" | Application name          |
-| `APPLICATION_VERSION`              | "0.1.0"                  | Application version       |
-| `DEBUG`                            | `false`                  | Debug mode                |
-| `HOST`                             | "127.0.0.1"              | Server host               |
-| `PORT`                             | 8000                     | Server port               |
-| `ALLOWED_DOMAINS`                  | `["*"]`                  | CORS allowed domains      |
-| `PORTIA_CONFIG__PORTIA_API_KEY`    | `None`                   | Portia API key (optional) |
-| `PORTIA_CONFIG__OPENAI_API_KEY`    | `None`                   | OpenAI API key            |
-| `PORTIA_CONFIG__ANTHROPIC_API_KEY` | `None`                   | Anthropic API key         |
-| `LOG_LEVEL`                        | "INFO"                   | Logging level             |
+| Setting                            | Default                  | Description                           |
+| ---------------------------------- | ------------------------ | ------------------------------------- |
+| `APP_NAME`                         | "Portia FastAPI Example" | Application name                      |
+| `APPLICATION_VERSION`              | "0.1.0"                  | Application version                   |
+| `DEBUG`                            | `false`                  | Debug mode                            |
+| `HOST`                             | "127.0.0.1"              | Server host                           |
+| `PORT`                             | 8000                     | Server port                           |
+| `MAX_WORKERS`                      | 4                        | Thread pool size for Portia execution |
+| `ALLOWED_DOMAINS`                  | `["*"]`                  | CORS allowed domains                  |
+| `PORTIA_CONFIG__PORTIA_API_KEY`    | `None`                   | Portia API key (optional)             |
+| `PORTIA_CONFIG__OPENAI_API_KEY`    | `None`                   | OpenAI API key                        |
+| `PORTIA_CONFIG__ANTHROPIC_API_KEY` | `None`                   | Anthropic API key                     |
+| `LOG_LEVEL`                        | "INFO"                   | Logging level                         |
+
+## Performance & Concurrency
+
+This application includes several performance optimizations:
+
+### **Threaded Portia Execution**
+Portia SDK operations run in a dedicated thread pool to prevent blocking the FastAPI event loop:
+
+```python
+# Configured via MAX_WORKERS environment variable (default: 4)
+loop = asyncio.get_running_loop()
+plan_run = await loop.run_in_executor(
+    self._executor, portia_instance.run, query, tools
+)
+```
+
+### **Benefits:**
+- ✅ **Non-blocking**: FastAPI can handle other requests while Portia runs
+- ✅ **Configurable concurrency**: Adjust `MAX_WORKERS` based on your needs
+- ✅ **Better resource utilization**: Prevents thread starvation
+- ✅ **Scalable**: Maintains responsiveness under load
+
+### **LLM Response Caching**
+Optional Redis integration for caching LLM responses:
+
+```bash
+# Enable Redis caching
+docker compose --profile cache up -d
+```
+
+Set `PORTIA_CONFIG__LLM_REDIS_CACHE_URL=redis://redis:6379` to enable caching.
 
 ## Development
 
