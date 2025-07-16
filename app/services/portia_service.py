@@ -1,7 +1,9 @@
 """Portia SDK service integration."""
 
+import asyncio
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import ClassVar
 
 from portia import DefaultToolRegistry, Portia, PortiaToolRegistry
@@ -42,6 +44,7 @@ class PortiaService:
             self._initialized = True
             self._tools: set[str] = set()
             self._portia_instance: Portia | None = None
+            self._executor = ThreadPoolExecutor(max_workers=settings.max_workers)
 
     def _get_portia_instance(self, tools: set[str]) -> Portia:
         """Get the Portia SDK instance for the given tools.
@@ -88,7 +91,9 @@ class PortiaService:
         start_time = time.time()
 
         try:
-            plan_run = portia_instance.run(query, tools)
+            # Run the Portia execution in a thread pool to avoid blocking the event loop
+            loop = asyncio.get_running_loop()
+            plan_run = await loop.run_in_executor(self._executor, portia_instance.run, query, tools)
 
             result = plan_run.outputs.final_output
 

@@ -95,6 +95,9 @@ class Settings(BaseSettings):
     # Server settings
     host: str = Field(default="127.0.0.1", description="Server host")
     port: int = Field(default=8000, description="Server port")
+    max_workers: int = Field(
+        default=4, description="Maximum number of worker threads for Portia execution"
+    )
 
     # CORS settings
     allowed_domains: list[str] = Field(
