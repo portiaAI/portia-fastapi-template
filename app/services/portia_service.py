@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import ClassVar
 
-from portia import DefaultToolRegistry, Portia, PortiaToolRegistry
+from portia import DefaultToolRegistry, Portia, Tool
 
 from app.config import settings
 from app.exceptions import InvalidToolsError
@@ -40,7 +40,6 @@ class PortiaService:
         """Initialize the Portia service."""
         if not hasattr(self, "_initialized"):
             self._config = settings.get_portia_config()
-            self._initialise_available_tools()
             self._initialized = True
             self._tools: set[str] = set()
             self._portia_instance: Portia | None = None
@@ -59,10 +58,12 @@ class PortiaService:
         if tools == self._tools and self._portia_instance is not None:
             return self._portia_instance
 
-        if tools.issubset(self._available_tool_ids):
+        available_tools_map = self._get_available_tools_map()
+
+        if tools.issubset(set(available_tools_map.keys())):
             self._portia_instance = Portia(
                 config=self._config,
-                tools=[self._available_tools[tool] for tool in tools],
+                tools=[available_tools_map[tool] for tool in tools],
                 execution_hooks=None,  # No CLI hooks for API usage
             )
             self._tools = tools
@@ -70,7 +71,7 @@ class PortiaService:
 
             return self._portia_instance
 
-        raise InvalidToolsError(list(tools), list(self._available_tool_ids))
+        raise InvalidToolsError(list(tools), list(available_tools_map.keys()))
 
     async def run_query(self, query: str, tools: list[str]) -> dict:
         """Run the given query using the Portia SDK and specified tools.
@@ -119,11 +120,9 @@ class PortiaService:
 
     def available_tool_ids(self) -> list[str]:
         """Get list of available tool IDs."""
-        return list(self._available_tool_ids)
+        return list(self._get_available_tools_map().keys())
 
-    def _initialise_available_tools(self) -> None:
-        """Initialise the available tools."""
+    def _get_available_tools_map(self) -> dict[str, Tool]:
+        """Get a map of tool IDs to tool objects for all the available tools."""
         available_tools = DefaultToolRegistry(config=self._config).get_tools()
-
-        self._available_tools = {tool.id: tool for tool in available_tools}
-        self._available_tool_ids = set(self._available_tools.keys())
+        return {tool.id: tool for tool in available_tools}
