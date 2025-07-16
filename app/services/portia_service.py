@@ -125,7 +125,5 @@ class PortiaService:
         """Initialise the available tools."""
         available_tools = DefaultToolRegistry(config=self._config).get_tools()
 
-        if self._config.portia_api_key:
-            available_tools.extend(PortiaToolRegistry(config=self._config).get_tools())
         self._available_tools = {tool.id: tool for tool in available_tools}
         self._available_tool_ids = set(self._available_tools.keys())
