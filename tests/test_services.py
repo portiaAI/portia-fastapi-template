@@ -16,25 +16,32 @@ class TestPortiaService:
         """Reset the singleton instance before each test."""
         PortiaService._instance = None  # noqa: SLF001
 
-    @patch("app.services.portia_service.Config")
+    def _create_mock_config(self) -> Mock:
+        """Create a properly configured mock config object."""
+        mock_config = Mock()
+        mock_config.portia_api_endpoint = "https://api.portialabs.ai"
+        mock_config.portia_dashboard_url = "https://app.portialabs.ai"
+        mock_config.portia_api_key = None
+        mock_config.must_get.return_value = "https://api.portialabs.ai"
+        mock_config.get.return_value = "https://api.portialabs.ai"
+        return mock_config
+
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     def test_singleton_behavior(
         self,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test that PortiaService follows singleton pattern."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "test_tool"
         mock_default_registry.return_value.get_tools.return_value = [mock_tool]
-        _mock_portia_registry.return_value.get_tools.return_value = []
 
         service1 = PortiaService()
         service2 = PortiaService()
@@ -44,25 +51,22 @@ class TestPortiaService:
         assert service2 is service3
         assert service1 is service3
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     def test_initialization(
         self,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test PortiaService initialization."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = "test_key"
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "test_tool"
         mock_default_registry.return_value.get_tools.return_value = [mock_tool]
-        _mock_portia_registry.return_value.get_tools.return_value = []
 
         service = PortiaService()
 
@@ -70,20 +74,18 @@ class TestPortiaService:
         assert hasattr(service, "_initialized")
         assert service._initialized is True  # noqa: SLF001
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     def test_available_tool_ids(
         self,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test getting available tool IDs."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool1 = Mock()
         mock_tool1.id = "tool1"
@@ -98,22 +100,20 @@ class TestPortiaService:
         assert "tool1" in tool_ids
         assert "tool2" in tool_ids
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     @patch("app.services.portia_service.Portia")
     def test_get_portia_instance_valid_tools(
         self,
         mock_portia: Mock,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test getting Portia instance with valid tools."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "test_tool"
@@ -132,20 +132,18 @@ class TestPortiaService:
             config=mock_config_instance, tools=[mock_tool], execution_hooks=None
         )
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     def test_get_portia_instance_invalid_tools(
         self,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test getting Portia instance with invalid tools."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "valid_tool"
@@ -160,23 +158,21 @@ class TestPortiaService:
         assert exc_info.value.invalid_tools == ["invalid_tool"]
         assert exc_info.value.available_tools == ["valid_tool"]
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     @patch("app.services.portia_service.Portia")
     @pytest.mark.asyncio
     async def test_run_query_success(
         self,
         mock_portia: Mock,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test successful query execution."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "test_tool"
@@ -197,23 +193,21 @@ class TestPortiaService:
         assert result["result"] == {"result": "success"}
         assert isinstance(result["execution_time"], (int, float))
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     @patch("app.services.portia_service.Portia")
     @pytest.mark.asyncio
     async def test_run_query_failure(
         self,
         mock_portia: Mock,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test query execution failure."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "test_tool"
@@ -232,21 +226,19 @@ class TestPortiaService:
         assert result["error"] == "Test error"
         assert isinstance(result["execution_time"], (int, float))
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     @pytest.mark.asyncio
     async def test_run_query_invalid_tools(
         self,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test query execution with invalid tools."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "valid_tool"
@@ -257,22 +249,20 @@ class TestPortiaService:
         with pytest.raises(InvalidToolsError):
             await service.run_query("test query", ["invalid_tool"])
 
-    @patch("app.services.portia_service.Config")
+    @patch("app.services.portia_service.settings")
     @patch("app.services.portia_service.DefaultToolRegistry")
-    @patch("app.services.portia_service.PortiaToolRegistry")
     @patch("app.services.portia_service.Portia")
     def test_reuse_portia_instance(
         self,
         mock_portia: Mock,
-        _mock_portia_registry: Mock,  # noqa: PT019
         mock_default_registry: Mock,
-        mock_config: Mock,
+        mock_settings: Mock,
     ) -> None:
         """Test that Portia instances are reused for the same tool set."""
         # Setup mocks
-        mock_config_instance = Mock()
-        mock_config.from_default.return_value = mock_config_instance
-        mock_config_instance.portia_api_key = None
+        mock_config_instance = self._create_mock_config()
+        mock_settings.get_portia_config.return_value = mock_config_instance
+        mock_settings.max_workers = 4
 
         mock_tool = Mock()
         mock_tool.id = "test_tool"
